@@ -13,7 +13,7 @@ app.get("/lol", async (req, res) => {
 
 app.post("/create-pdf", async (req, res) => {
   const htmlContent = req.body.html;
-
+  res.setHeader("Content-Type", "text/html");
   res.send(htmlContent);
 
   // try {
