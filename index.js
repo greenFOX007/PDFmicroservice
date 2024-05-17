@@ -1,4 +1,3 @@
-
 const express = require("express");
 const puppeteer = require("puppeteer");
 const cors = require("cors");
@@ -8,6 +7,9 @@ app.use(express.json());
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 
+app.get("/lol", async (req, res) => {
+  res.send("lolkek");
+});
 
 app.post("/create-pdf", async (req, res) => {
   const htmlContent = req.body.html;
@@ -44,4 +46,3 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
-
