@@ -15,7 +15,9 @@ app.post("/create-pdf", async (req, res) => {
   const htmlContent = req.body.html;
 
   try {
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({
+      headless: true,
+    });
     const page = await browser.newPage();
 
     await page.setContent(htmlContent, { waitUntil: "networkidle0" });
