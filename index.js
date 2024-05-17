@@ -7,8 +7,8 @@ app.use(express.json());
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 
-app.get("/lol", async (req, res) => {
-  res.send("lolkek");
+app.get("/ping", async (req, res) => {
+  res.send("pong");
 });
 
 app.post("/create-pdf", async (req, res) => {
@@ -16,7 +16,9 @@ app.post("/create-pdf", async (req, res) => {
 
   try {
     const browser = await puppeteer.launch({
-      headless: true,
+      headless: "new",
+      ignoreDefaultArgs: ["--disable-extensions"],
+      args: ["--no-sandbox", "--disable-setuid-sandbox"],
     });
     const page = await browser.newPage();
 
