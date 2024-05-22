@@ -1,0 +1,110 @@
+variables:
+  TARGET_REPOSITORY: itbc-devops-test
+  PROJECT_NAME: profiler
+  IMAGE_NAME: ${PROJECT_NAME}-pdfmicroservice
+  FINAL_IMAGE_NAME: $DOCKER_REGISTRY_SERVER/$TARGET_REPOSITORY/$IMAGE_NAME
+  TESTLAB_HOST: testlab.${PROJECT_NAME}.bootcamp.lan
+  ENABLE_JOB: "false"
+
+default:
+  image: docker:latest
+  tags:
+    - ${PROJECT_NAME}
+    - dind
+
+before_script:
+  - export BUILD_NUMBER=$(echo "$CI_COMMIT_TIMESTAMP" | cut -c 3-10 | sed 's/-//g').$CI_COMMIT_SHORT_SHA
+
+stages:
+  - build_and_package
+  - deploy_to_docker
+
+docker_build_and_push:
+  stage: build_and_package
+  services:
+    - name: docker:dind
+      alias: thedockerhost
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://thedockerhost:2375/
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_BUILDKIT: 1
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+    - if: '$ENABLE_JOB == "true"'
+  retry:
+    max: 2
+  script:
+    # Логин в Docker Registry
+    - docker login -u "$DOCKER_REGISTRY_USER" -p "$(echo $DOCKER_REGISTRY_PASSWORD | base64 -d)" "$DOCKER_REGISTRY_SERVER"
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+    
+    # Создание директории для сборки Docker образа, если она не существует
+    - mkdir -p ./build_docker
+    
+    # Если директория target не существует, создаем ее и добавляем примерный файл
+    - if [ ! -d "./target" ]; then mkdir -p ./target && echo "example content" > ./target/example.txt; fi
+
+    - cp -r ./target ./build_docker
+    - ls -la ./build_docker/target
+    
+    # Сборка Docker образа
+    - |
+      docker build \
+        --tag "$FINAL_IMAGE_NAME:$BUILD_NUMBER" \
+        -f ./Dockerfile \
+        $CI_PROJECT_DIR
+    
+    # Вывод списка Docker образов
+    - docker image ls | grep $FINAL_IMAGE_NAME
+    
+    # Публикация Docker образов
+    - docker push "$FINAL_IMAGE_NAME:$BUILD_NUMBER"
+
+deploy_to_docker:
+  stage: deploy_to_docker
+  variables:
+    CONTAINER_NAME: ${PROJECT_NAME}-pdfmicroservice
+    PORTS: "3001:3001"
+  needs:
+    - job: docker_build_and_push
+      optional: true
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+    - if: '$ENABLE_JOB == "true"'
+      when: on_success
+  script:
+    # Установка sshpass для передачи пароля в ssh
+    - apk add --no-cache sshpass
+    
+    # Создание алиаса для упрощения использования SSH с паролем
+    - alias myssh='sshpass -p $SSH_PASSWORD ssh -o StrictHostKeyChecking=no $SSH_USER@$TESTLAB_HOST'
+    
+    # Удаление существующего контейнера, если такой существует
+    - >
+      myssh "docker ps -a | grep $CONTAINER_NAME | awk '{print \$1}' | xargs -r docker rm -f"
+    
+    # Удаление старых образов
+    - >
+      myssh "docker image ls | grep $IMAGE_NAME | grep -P $LABLE_MASK | awk '{print \$3}' | xargs -r docker rmi -f"
+
+    # Логин в Docker Registry
+    - >
+      myssh "docker login -u $DOCKER_REGISTRY_USER -p $(echo $DOCKER_REGISTRY_PASSWORD | base64 -d) $DOCKER_REGISTRY_SERVER"
+
+    # Пул нового образа
+    - >
+      myssh "docker pull $FINAL_IMAGE_NAME:$BUILD_NUMBER"
+
+    # Запуск нового контейнера
+    - >
+      myssh "docker run -d
+      -p $PORTS
+      --restart always 
+      --network net_${PROJECT_NAME} 
+      --name $CONTAINER_NAME 
+      $FINAL_IMAGE_NAME:$BUILD_NUMBER"
+

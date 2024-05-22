@@ -14,6 +14,8 @@ RUN npm install --only=production
 # Bundle app source
 COPY . .
 
+RUN echo "deb http://ftp.us.debian.org/debian bookworm main" > /etc/apt/sources.list
+
 # Install Puppeteer dependencies
 RUN apt-get update && apt-get install -y \
     gconf-service \
@@ -24,6 +26,7 @@ RUN apt-get update && apt-get install -y \
     libcups2 \
     libdbus-1-3 \
     libexpat1 \
+    fonts-liberation \
     libfontconfig1 \
     libgcc1 \
     libgconf-2-4 \
@@ -39,6 +42,11 @@ RUN apt-get update && apt-get install -y \
     libxcb1 \
     libxcomposite1 \
     libxcursor1 \
+    libxdamage1 
+
+
+
+RUN apt-get update && apt-get install -y \
     libxdamage1 \
     libxext6 \
     libxfixes3 \
@@ -48,13 +56,37 @@ RUN apt-get update && apt-get install -y \
     libxss1 \
     libxtst6 \
     ca-certificates \
-    fonts-liberation \
     libappindicator1 \
     libnss3 \
     lsb-release \
     xdg-utils \
-    wget
+    wget \
+    unzip \
+    fontconfig 
 
+# Копирование шрифтов из папки проекта в контейнер
+COPY ./fonts/ /tmp/fonts/
+
+# Установка шрифта Manrope
+RUN mkdir -p /usr/share/fonts/truetype/manrope && \
+    mv /tmp/fonts/Manrope-Bold.ttf /usr/share/fonts/truetype/manrope/Manrope-Bold.ttf && \
+    mv /tmp/fonts/Manrope-ExtraBold.ttf /usr/share/fonts/truetype/manrope/Manrope-ExtraBold.ttf && \
+    mv /tmp/fonts/Manrope-Light.ttf /usr/share/fonts/truetype/manrope/Manrope-Light.ttf && \
+    mv /tmp/fonts/Manrope-ExtraLight.ttf /usr/share/fonts/truetype/manrope/Manrope-ExtraLight.ttf && \
+    mv /tmp/fonts/Manrope-Medium.ttf /usr/share/fonts/truetype/manrope/Manrope-Medium.ttf && \
+    mv /tmp/fonts/Manrope-Regular.ttf /usr/share/fonts/truetype/manrope/Manrope-Regular.ttf && \
+    mv /tmp/fonts/Manrope-SemiBold.ttf /usr/share/fonts/truetype/manrope/Manrope-SemiBold.ttf && \
+    # Добавьте аналогичные строки для других файлов шрифта Manrope
+    fc-cache -f -v
+
+# Установка шрифта Red Hat Display
+RUN mkdir -p /usr/share/fonts/truetype/redhat-display && \
+    mv /tmp/fonts/RedHatDisplay-Black.ttf /usr/share/fonts/truetype/redhat-display/RedHatDisplay-Black.ttf && \
+    mv /tmp/fonts/RedHatDisplay-Bold.ttf /usr/share/fonts/truetype/redhat-display/RedHatDisplay-Bold.ttf && \
+    mv /tmp/fonts/RedHatDisplay-Medium.ttf /usr/share/fonts/truetype/redhat-display/RedHatDisplay-Medium.ttf && \
+    mv /tmp/fonts/RedHatDisplay-Regular.ttf /usr/share/fonts/truetype/redhat-display/RedHatDisplay-Regular.ttf && \
+    # Добавьте аналогичные строки для других файлов шрифта Red Hat Display
+    fc-cache -f -v
 
 # Expose the port
 EXPOSE 3001
